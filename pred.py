@@ -14,6 +14,7 @@ maxlen_map = json.loads(open('config/model2maxlen.json', encoding='utf-8').read(
 
 URL = "http://127.0.0.1:8000/v1"
 API_KEY = "token-abc123"
+base_url = URL
 template_rag = open('prompts/0shot_rag.txt', encoding='utf-8').read()
 template_no_context = open('prompts/0shot_no_context.txt', encoding='utf-8').read()
 template_0shot = open('prompts/0shot.txt', encoding='utf-8').read()
@@ -74,7 +75,7 @@ def get_pred(data, args, fout):
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_map[model], trust_remote_code=True)
     client = OpenAI(
-        base_url=URL,
+        base_url=base_url,
         api_key=API_KEY
     )
     for item in tqdm(data):
@@ -115,6 +116,11 @@ def get_pred(data, args, fout):
 def main():
     os.makedirs(args.save_dir, exist_ok=True)
     print(args)
+
+    if args.endpoint:
+        global base_url
+        base_url = args.endpoint
+
     if args.rag > 0:
         out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + f"_rag_{str(args.rag)}.jsonl")
     elif args.no_context:
@@ -155,5 +161,6 @@ if __name__ == "__main__":
     parser.add_argument("--no_context", "-nc", action='store_true') # set to True if using no context (directly measuring memorization)
     parser.add_argument("--rag", "-rag", type=int, default=0) # set to 0 if RAG is not used, otherwise set to N when using top-N retrieved context
     parser.add_argument("--n_proc", "-n", type=int, default=16)
+    parser.add_argument("--endpoint", type=str, default=URL)
     args = parser.parse_args()
     main()
