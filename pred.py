@@ -23,7 +23,10 @@ template_0shot_cot_ans = open('prompts/0shot_cot_ans.txt', encoding='utf-8').rea
 
 def query_llm(prompt, model, tokenizer, client=None, temperature=0.5, max_new_tokens=128, stop=None):
     # truncate
-    max_len = maxlen_map[model]
+    if args.max_len:
+        max_len = args.max_len
+    else:
+        max_len = maxlen_map[model]
     if model in model_map:
         input_ids = tokenizer.encode(prompt)
         if len(input_ids) > max_len:
@@ -131,6 +134,11 @@ def main():
         out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + ".jsonl")
 
     dataset = load_dataset('THUDM/LongBench-v2', split='train') # dataset = json.load(open('data.json', 'r', encoding='utf-8'))
+
+    # Filter by subset if specified
+    if subset_ids is not None:
+        dataset = dataset.filter(lambda x: x['_id'] in subset_ids)
+
     data_all = [{"_id": item["_id"], "domain": item["domain"], "sub_domain": item["sub_domain"], "difficulty": item["difficulty"], "length": item["length"], "question": item["question"], "choice_A": item["choice_A"], "choice_B": item["choice_B"], "choice_C": item["choice_C"], "choice_D": item["choice_D"], "answer": item["answer"], "context": item["context"]} for item in dataset]
 
     # cache
@@ -162,5 +170,19 @@ if __name__ == "__main__":
     parser.add_argument("--rag", "-rag", type=int, default=0) # set to 0 if RAG is not used, otherwise set to N when using top-N retrieved context
     parser.add_argument("--n_proc", "-n", type=int, default=16)
     parser.add_argument("--endpoint", type=str, default=URL)
+
+    # Extra filters
+    parser.add_argument("--max_len", type=int, default=None)  # max length for the model, used for truncation
+    parser.add_argument("--subset", type=str, default=None)
+
     args = parser.parse_args()
+
+    subset_ids = None
+    if args.subset:
+        subset_ids = set()
+        with open(args.subset, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                subset_ids.add(row[0])
+
     main()
