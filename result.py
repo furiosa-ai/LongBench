@@ -1,11 +1,19 @@
 import os, json
+import argparse
 
-files = os.listdir('results')
+parser = argparse.ArgumentParser(description='Process model prediction results.')
+parser.add_argument('--result-dir', type=str, default='results', help='Directory containing result files')
+parser.add_argument('--output-dir', type=str, default='.', help='File to write the output')
+args = parser.parse_args()
+result_dir = args.result_dir
+output_file = os.path.join(args.output_dir, "result.txt") if args.output_dir else 'result.txt'
+
+files = os.listdir(result_dir)
 output = ["Model\tOverall\tEasy\tHard\tShort\tMedium\tLong"]
 compensated = False
 
 for file in files:
-    filename = os.path.join('results', file)
+    filename = os.path.join(result_dir, file)
     try:
         pred_data = json.load(open(filename, encoding='utf-8'))
     except Exception as e:
@@ -36,4 +44,4 @@ for file in files:
     name = '.'.join(file.split('.')[:-1])
     output.append(name+'\t'+str(round(100*(easy_acc+hard_acc)/len(pred_data), 1))+'\t'+str(round(100*easy_acc/easy, 1))+'\t'+str(round(100*hard_acc/hard, 1))+'\t'+str(round(100*short_acc/short, 1))+'\t'+str(round(100*medium_acc/medium, 1))+'\t'+str(round(100*long_acc/long, 1)))
 
-open('result.txt', 'w', encoding='utf-8').write('\n'.join(output))
+open(output_file, 'w', encoding='utf-8').write('\n'.join(output))
