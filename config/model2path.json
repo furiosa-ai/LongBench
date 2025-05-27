@@ -10,5 +10,6 @@
     "Mistral-Large-Instruct-2411": "mistralai/Mistral-Large-Instruct-2411",
     "c4ai-command-r-plus-08-2024": "CohereForAI/c4ai-command-r-plus-08-2024",
     "glm-4-plus": "THUDM/glm-4-9b-chat",
-    "EXAONE-3.5-32B-Instruct": "LGAI-EXAONE/EXAONE-3.5-32B-Instruct"
+    "EXAONE-3.5-32B-Instruct": "LGAI-EXAONE/EXAONE-3.5-32B-Instruct",
+    "EXAONE-3.5-7.8B-Instruct": "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
 }

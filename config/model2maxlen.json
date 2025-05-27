@@ -15,5 +15,6 @@
     "o1-mini-2024-09-12": 120000,
     "o1-preview-2024-09-12": 120000,
     "claude-3.5-sonnet-20241022": 200000,
-    "EXAONE-3.5-32B-Instruct": 31768
+    "EXAONE-3.5-32B-Instruct": 30000,
+    "EXAONE-3.5-7.8B-Instruct": 30000
 }
