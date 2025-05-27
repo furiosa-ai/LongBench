@@ -125,19 +125,25 @@ def main():
         base_url = args.endpoint
 
     if args.rag > 0:
-        out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + f"_rag_{str(args.rag)}.jsonl")
+        out_filename = args.model.split("/")[-1] + f"_rag_{str(args.rag)}.jsonl"
     elif args.no_context:
-        out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + "_no_context.jsonl")
+        out_filename = args.model.split("/")[-1] + "_no_context.jsonl"
     elif args.cot:
-        out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + "_cot.jsonl")
+        out_filename = args.model.split("/")[-1] + "_cot.jsonl"
     else:
-        out_file = os.path.join(args.save_dir, args.model.split("/")[-1] + ".jsonl")
+        out_filename = args.model.split("/")[-1] + ".jsonl"
+
+    out_file = os.path.join(args.save_dir, out_filename)
 
     dataset = load_dataset('THUDM/LongBench-v2', split='train') # dataset = json.load(open('data.json', 'r', encoding='utf-8'))
 
     # Filter by subset if specified
     if subset_ids is not None:
         dataset = dataset.filter(lambda x: x['_id'] in subset_ids)
+
+    # Limit the number of samples if specified
+    if args.limit is not None:
+        dataset = dataset.select(range(args.limit))
 
     data_all = [{"_id": item["_id"], "domain": item["domain"], "sub_domain": item["sub_domain"], "difficulty": item["difficulty"], "length": item["length"], "question": item["question"], "choice_A": item["choice_A"], "choice_B": item["choice_B"], "choice_C": item["choice_C"], "choice_D": item["choice_D"], "answer": item["answer"], "context": item["context"]} for item in dataset]
 
@@ -161,6 +167,18 @@ def main():
     for p in processes:
         p.join()
 
+    fout.close()
+
+    if args.demo:
+        import shutil
+        print(f"Demo mode: Copying samples/{out_filename} to {out_file}")
+        # Copy samples/out_filename to the save directory
+        sample_file = os.path.join("samples", out_filename)
+        if not os.path.exists(sample_file):
+            raise FileNotFoundError(f"Sample file {sample_file} does not exist.")
+        shutil.copyfile(sample_file, out_file)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--save_dir", "-s", type=str, default="results")
@@ -174,6 +192,8 @@ if __name__ == "__main__":
     # Extra filters
     parser.add_argument("--max_len", type=int, default=None)  # max length for the model, used for truncation
     parser.add_argument("--subset", type=str, default=None)
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of samples to process")
+    parser.add_argument("--demo", action='store_true', help="Run in demo mode with a limited number of samples")
 
     args = parser.parse_args()
 
