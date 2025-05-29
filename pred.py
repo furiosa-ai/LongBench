@@ -194,6 +194,7 @@ if __name__ == "__main__":
     parser.add_argument("--subset", type=str, default=None)
     parser.add_argument("--limit", type=int, default=None, help="Limit the number of samples to process")
     parser.add_argument("--demo", action='store_true', help="Run in demo mode with a limited number of samples")
+    parser.add_argument("--verbose", "-v", action='store_true', help="Enable verbose output") # dummy
 
     args = parser.parse_args()
 
