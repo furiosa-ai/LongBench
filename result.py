@@ -2,8 +2,8 @@ import os, json
 import argparse
 
 parser = argparse.ArgumentParser(description='Process model prediction results.')
-parser.add_argument('--result-dir', type=str, default='results', help='Directory containing result files')
-parser.add_argument('--output-dir', type=str, default='.', help='File to write the output')
+parser.add_argument('--result_dir', type=str, default='results', help='Directory containing result files')
+parser.add_argument('--output_dir', type=str, default='.', help='File to write the output')
 args = parser.parse_args()
 result_dir = args.result_dir
 output_file = os.path.join(args.output_dir, "result.txt") if args.output_dir else 'result.txt'
