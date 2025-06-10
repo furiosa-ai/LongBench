@@ -7,13 +7,11 @@ from tqdm import tqdm
 import numpy as np
 import random
 import argparse
-from llama_flash_attn_monkey_patch import replace_llama_attn_with_flash_attn
-import torch.distributed as dist
 import torch.multiprocessing as mp
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default=None, choices=["llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k", "chatglm3-6b-32k", "vicuna-v1.5-7b-16k"])
+    parser.add_argument('--model', type=str, default=None, choices=["llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k", "chatglm3-6b-32k", "vicuna-v1.5-7b-16k", "exaone-3.5-7.8b-instruct"])
     parser.add_argument('--e', action='store_true', help="Evaluate on LongBench-E")
     return parser.parse_args(args)
 
@@ -39,6 +37,13 @@ def build_chat(tokenizer, prompt, model_name):
         prompt = header + f" ### Human: {prompt}\n###"
     elif "internlm" in model_name:
         prompt = f"<|User|>:{prompt}<eoh>\n<|Bot|>:"
+    # torch.OutOfMemoryError was raised on NVIDIA RTX A6000 when using
+    # tokenizer.apply_chat_template:
+    #
+    # > torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.03 GiB. GPU 0 has a total capacity of 47.43 GiB of which 9.63 GiB is free. Including non-PyTorch memory, this process has 37.78 GiB memory in use. Of the allocated memory 24.68 GiB is allocated by PyTorch, and 12.79 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+    #
+    # elif "exaone" in model_name:
+    #     prompt = tokenizer.apply_chat_template([{"role": "system", "content": "You are EXAONE model from LG AI Research, a helpful assistant."}, {"role": "user", "content": prompt}], add_generation_prompt=True, tokenize=False)
     return prompt
 
 def post_process(response, model_name):
@@ -93,7 +98,6 @@ def get_pred(rank, world_size, data, max_length, max_gen, prompt_format, dataset
         with open(out_path, "a", encoding="utf-8") as f:
             json.dump({"pred": pred, "answers": json_obj["answers"], "all_classes": json_obj["all_classes"], "length": json_obj["length"]}, f, ensure_ascii=False)
             f.write('\n')
-    dist.destroy_process_group()
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -126,6 +130,13 @@ def load_model_and_tokenizer(path, model_name, device):
         model = model.to(device)
         model = model.bfloat16()
         tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, use_fast=False)
+    elif "exaone" in model_name:
+        tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
+        # torch.OutOfMemoryError was raised on NVIDIA RTX A6000 when using
+        # torch_dtype=torch.float32:
+        #
+        # > torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.02 GiB. GPU 0 has a total capacity of 47.43 GiB of which 7.35 GiB is free. Including non-PyTorch memory, this process has 40.05 GiB memory in use. Of the allocated memory 37.31 GiB is allocated by PyTorch, and 2.44 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+        model = AutoModelForCausalLM.from_pretrained(path, trust_remote_code=True, torch_dtype=torch.bfloat16).to(device)
     model = model.eval()
     return model, tokenizer
 
@@ -145,9 +156,8 @@ if __name__ == '__main__':
         datasets = ["qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
             "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
     else:
-        datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-                    "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-                    "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+        datasets = ["narrativeqa", "qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "musique", \
+                    "gov_report", "qmsum", "multi_news", "trec", "triviaqa"]
     # we design specific prompt format and max generation length for each task, feel free to modify them to optimize model output
     dataset2prompt = json.load(open("config/dataset2prompt.json", "r"))
     dataset2maxlen = json.load(open("config/dataset2maxlen.json", "r"))

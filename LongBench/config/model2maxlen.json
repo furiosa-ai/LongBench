@@ -6,5 +6,6 @@
     "chatglm2-6b": 31500,
     "chatglm2-6b-32k": 31500,
     "chatglm3-6b-32k": 31500,
-    "vicuna-v1.5-7b-16k": 15500
+    "vicuna-v1.5-7b-16k": 15500,
+    "exaone-3.5-7.8b-instruct": 31500
 }
