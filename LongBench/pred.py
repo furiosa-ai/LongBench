@@ -11,7 +11,7 @@ import torch.multiprocessing as mp
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default=None, choices=["llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k", "chatglm3-6b-32k", "vicuna-v1.5-7b-16k", "exaone-3.5-7.8b-instruct", "exaone-3.5-32b-instruct"])
+    parser.add_argument('--model', type=str, default=None, choices=["llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k", "chatglm3-6b-32k", "vicuna-v1.5-7b-16k", "exaone-3.5-7.8b-instruct", "exaone-3.5-32b-instruct", "exaone-4.0-32b", "exaone-4.0-32b-fp8"])
     parser.add_argument('--e', action='store_true', help="Evaluate on LongBench-E")
     return parser.parse_args(args)
 
@@ -42,8 +42,10 @@ def build_chat(tokenizer, prompt, model_name):
     #
     # > torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.03 GiB. GPU 0 has a total capacity of 47.43 GiB of which 9.63 GiB is free. Including non-PyTorch memory, this process has 37.78 GiB memory in use. Of the allocated memory 24.68 GiB is allocated by PyTorch, and 12.79 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
     #
-    # elif "exaone" in model_name:
+    # elif "exaone-3.5" in model_name:
     #     prompt = tokenizer.apply_chat_template([{"role": "system", "content": "You are EXAONE model from LG AI Research, a helpful assistant."}, {"role": "user", "content": prompt}], add_generation_prompt=True, tokenize=False)
+    elif "exaone-4.0" in model_name:
+        prompt = tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True, tokenize=False)
     return prompt
 
 def post_process(response, model_name):
@@ -130,13 +132,16 @@ def load_model_and_tokenizer(path, model_name, device):
         model = model.to(device)
         model = model.bfloat16()
         tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True, use_fast=False)
-    elif "exaone" in model_name:
+    elif "exaone-3.0" in model_name:
         tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
         # torch.OutOfMemoryError was raised on NVIDIA RTX A6000 when using
         # torch_dtype=torch.float32:
         #
         # > torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.02 GiB. GPU 0 has a total capacity of 47.43 GiB of which 7.35 GiB is free. Including non-PyTorch memory, this process has 40.05 GiB memory in use. Of the allocated memory 37.31 GiB is allocated by PyTorch, and 2.44 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
         model = AutoModelForCausalLM.from_pretrained(path, trust_remote_code=True, torch_dtype=torch.bfloat16).to(device)
+    elif "exaone-4.0" in model_name:
+        tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(path, trust_remote_code=True, dtype="auto", device_map="auto")
     model = model.eval()
     return model, tokenizer
 
